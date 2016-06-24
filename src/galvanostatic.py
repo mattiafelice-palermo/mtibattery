@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-
 import sys
 from io import StringIO
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 class CellReadings(object):
     def __init__(self, filename):
@@ -11,22 +11,23 @@ class CellReadings(object):
         self.cycles = []
 
         self._read_file(filename)
+        self.cycle_number = len(self.cycles)
 
     def _read_file(self, filename):
-        with open(filename,'r') as file:
+        with open(filename,'r') as data:
             try:
                 #--- Skip header
                 for i in [1,2,3]:
-                    line = file.readline()
+                    line = data.readline()
 
                 #--- Read cycle header
-                line = file.readline()
+                line = data.readline()
                 while True:
                     #--- Create cycle object
                     cycle = Cycle(line)
                     
                     #--- Read step header
-                    line = file.readline()
+                    line = data.readline()
                     
                     cycle_test = ''
                     
@@ -35,15 +36,15 @@ class CellReadings(object):
                         step_type = cycle.add_step(line)
 
                         #--- Read first record of current step
-                        line = file.readline()
+                        line = data.readline()
                         splitted = line.split('\t')
                         records = [] #contains all records of a step
 
                         #--- Reading records of a step
                         while splitted[1] == '':
-                            records.append(line)
+                            records.append(line[2:]) # remove two initial tabs
                             #--- Read next record and split it
-                            line = file.readline()
+                            line = data.readline()
                             splitted = line.split('\t')
 
                             #--- If EOF is reached, save data and raise except
@@ -62,49 +63,58 @@ class CellReadings(object):
                 print("Unexpected error:", sys.exc_info()[0])
                 raise
 
+    def plot_voltage_delta(self, step_label):
+        idx = []
+        deltas = []
+        for elem in self.cycles:
+            idx.append(elem.cycle_id)
+            deltas.append(elem.steps[step_label].voltage_delta)
+
+        plt.scatter(idx,deltas)
+        plt.plot(idx, deltas)
+        plt.show()
+
 
 class Cycle(object):
     def __init__(self, cycle_header):
-        splitted_header = cycle_header.split('\t')
-        self.cycle_id = splitted_header[0]
+        header = cycle_header.split('\t')
+        self.cycle_id = header[0]
         self.steps = {}
 
     def __str__(self):
         return "Cycle_id: "+self.cycle_id
-        #print("Cycle "+str(self.cycle_id))
 
     def add_step(self, step_header):
         step = Step(step_header, self.cycle_id)
-        self.steps[step.type] = step
-        return step.type
+        self.steps[step.label] = step
+        return step.label
+        
 
 class Step(object):
     def __init__(self, step_header, parent_cycle_id):
-        splitted_header = step_header.split('\t')
+        header = step_header.split('\t')
         self.parent_cycle_id = parent_cycle_id
-        self.id = splitted_header[1]
-        self.type = splitted_header[2]
-        self.records = None
+        self.step_id = int(header[1])
+        self.label = header[2]
+        self.time = header[3]
+        self.capacity = float(header[4])
+        self.specific_capacity = float(header[5])
+        self.energy = float(header[6])
+        self.specific_energy = float(header[7])
+        self.capacitance = float(header[8])
+        self.voltage_start = float(header[9])
+        self.voltage_end = float(header[10])
+        self.records = {}
 
-        self.datatype = np.dtype( [ ('none', np.str_), ('none2', np.str_),
-                                    ('id', np.int), ('time', np.datetime64),
-                                    ('voltage', np.float), ('current', np.float),
-                                    ('temperature', np.float), ('capacity', np.float),
-                                    ('specific_capacity', np.float), ('energy', np.float),
-                                    ('specific_energy', np.float) ] ) #, ('realtime', np.datetime64) ] )
-
-        self.dtype2 = np.dtype( [   ('voltage', np.float), ('current', np.float),
-                                    ('temperature', np.float), ('capacity', np.float),
-                                    ('specific_capacity', np.float), ('energy', np.float),
-                                    ('specific_energy', np.float) ] ) #, ('realtime', np.datetime64) ] )
+        self.voltage_delta = self.voltage_end - self.voltage_start
 
     def __str__(self):
-        return "Step "+self.id+" type "+self.type+" of Cycle"+self.parent_cycle_id
+        return "Step "+str(self.step_id)+" type "+self.label+" of Cycle "+str(self.parent_cycle_id)
 
     def add_records(self, record_list):
-        rows = len(record_list)
-        #m = np.fromiter(record_list[5:10],np.dtype([('col1', np.int)]))
-        #m = np.loadtxt(StringIO(record_list[5:10]))
+        string = ''.join(record_list).replace(' ', 'T')
+        csv = StringIO(string)
+        self.records['id'], self.records['volt'] = np.loadtxt('data.dat', usecols=(0,2), unpack=True, dtype=[('id', np.int), ('volt', np.float)])
 
-    
-        
+        # Using Pandas, slower
+        #self.records = pd.read_csv(csv, header=None, index_col=False, delim_whitespace=True, names=col_head)

@@ -1,13 +1,17 @@
+#!/usr/bin/env python
+import sys
+sys.path.append('/home/mattia/GitProjects/galvanostatic/src')
+
 from galvanostatic import CellReadings
 
 
 filename='20151126_graphite_foil_blank.txt'
 
-first = CellReadings(filename)
+readings = CellReadings(filename)
 
-#for cycle in first.cycles:
-#    for step in cycle.steps.values():
-#        print(step)
 
-print(first.cycles[1].steps['CC_Chg'].records)
+
+print(readings.cycles[0].steps['CC_Chg'].time)
+
+#readings.plot_voltage_delta('CC_Chg')
 
