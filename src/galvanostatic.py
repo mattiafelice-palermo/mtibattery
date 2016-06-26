@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import sys
 from io import StringIO
+import collections
+import datetime as dt
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,7 +16,7 @@ class CellReadings(object):
         self.cycle_number = len(self.cycles)
 
     def _read_file(self, filename):
-        with open(filename,'r') as data:
+        with open(filename,'r', encoding='utf-8') as data:
             try:
                 #--- Skip header
                 for i in [1,2,3]:
@@ -74,12 +76,43 @@ class CellReadings(object):
         plt.plot(idx, deltas)
         plt.show()
 
+    def plot_voltage(self, start=0, stop=None, stride=1):
+        idx = []
+        voltages = []
+
+        for cycle in self.cycles[start:stop:stride]:
+            for step in cycle.steps.values():
+                idx.extend(step.records['id'])
+                voltages.extend(step.records['volt'])
+
+        plt.plot(idx,voltages)
+        plt.show()
+
+    def plot_efficiency(self, start=0, stop=None, stride=1, mode='standard'):
+        idx = []
+        efficiency = []
+
+        for cycle in self.cycles[start:stop:stride]:
+            idx.append(cycle.cycle_id)
+            discharge_time = cycle.steps['CC_DChg'].duration
+            charge_time = cycle.steps['CC_Chg'].duration
+            if mode == 'standard':
+                efficiency.append(discharge_time/charge_time)
+            elif mode == 'inverse':
+                efficiency.append(charge_time/discharge_time)
+            else:
+                raise ValueError("'mode' argument accepts only 'standard' or 'inverse' parameters.")
+                
+
+        plt.scatter(idx,efficiency)
+        plt.plot(idx, efficiency)
+        plt.show()        
 
 class Cycle(object):
     def __init__(self, cycle_header):
         header = cycle_header.split('\t')
-        self.cycle_id = header[0]
-        self.steps = {}
+        self.cycle_id = int(header[0])
+        self.steps = collections.OrderedDict()
 
     def __str__(self):
         return "Cycle_id: "+self.cycle_id
@@ -88,15 +121,33 @@ class Cycle(object):
         step = Step(step_header, self.cycle_id)
         self.steps[step.label] = step
         return step.label
-        
+
+    def plot_voltage(self, step='all'):
+        if step == 'all':
+            idx = []
+            voltages = []
+
+            for step in self.steps.values():
+                idx.extend(step.records['id'])
+                voltages.extend(step.records['volt'])
+        elif step == 'charge':
+            idx = self.steps['CC_Chg'].records['id']
+            voltages = self.steps['CC_Chg'].records['volt']
+        elif step == 'discharge':
+            idx = self.steps['CC_DChg'].records['id']
+            voltages = self.steps['CC_DChg'].records['volt']
+        else:
+            raise ValueError("'step' argument can take 'all', 'charge', discharge' parameters only.")
+
+        plt.plot(idx,voltages)
+        plt.show()       
 
 class Step(object):
     def __init__(self, step_header, parent_cycle_id):
         header = step_header.split('\t')
-        self.parent_cycle_id = parent_cycle_id
+        self.parent_cycle_id = int(parent_cycle_id)
         self.step_id = int(header[1])
         self.label = header[2]
-        self.time = header[3]
         self.capacity = float(header[4])
         self.specific_capacity = float(header[5])
         self.energy = float(header[6])
@@ -106,7 +157,13 @@ class Step(object):
         self.voltage_end = float(header[10])
         self.records = {}
 
+        #--- Compute volt(end) - volt(start)
         self.voltage_delta = self.voltage_end - self.voltage_start
+
+        #--- Duration of the step
+        hours, minutes, seconds, mseconds = header[3].split(':')
+        self.duration = dt.timedelta(hours=int(hours), minutes=int(minutes),
+                                     seconds=int(seconds))
 
     def __str__(self):
         return "Step "+str(self.step_id)+" type "+self.label+" of Cycle "+str(self.parent_cycle_id)
@@ -114,7 +171,8 @@ class Step(object):
     def add_records(self, record_list):
         string = ''.join(record_list).replace(' ', 'T')
         csv = StringIO(string)
-        self.records['id'], self.records['volt'] = np.loadtxt('data.dat', usecols=(0,2), unpack=True, dtype=[('id', np.int), ('volt', np.float)])
 
-        # Using Pandas, slower
-        #self.records = pd.read_csv(csv, header=None, index_col=False, delim_whitespace=True, names=col_head)
+        convertfunc = lambda x: str(x, encoding='utf-8')
+        
+        self.records['id'], self.records['volt'], self.records['time'] = np.loadtxt(csv, usecols=(0,2,9), unpack=True, dtype=[('id', np.int), ('volt', np.float64), ('time', 'datetime64[ms]')], converters={9: convertfunc})
+
