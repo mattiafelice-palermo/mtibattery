@@ -1,12 +1,12 @@
 #!/usr/bin/env python
+import os
 import sys
-sys.path.append('/home/mattia/GitProjects/galvanostatic/src')
+sys.path.insert(0, os.path.abspath('../galvanostatic'))
 
 from galvanostatic import CellReadings
 
 
-filename='20151126_graphite_foil_blank.txt'
-filename='20151123_CuHcF_3A_for_elettra.txt'
+filename='../data/20151123_CuHcF_3A_for_elettra.txt'
 readings = CellReadings(filename)
 
 
@@ -14,5 +14,7 @@ readings = CellReadings(filename)
 
 print(readings.cycle_number)
 
-readings.cycles[1].plot_voltage(step='charge')
-readings.plot_efficiency(stride=10, mode='inverse')
+#readings.cycles[1].plot_voltage(step='charge')
+#readings.plot_efficiency(stride=10, mode='inverse')
+
+print(readings.get_duration())

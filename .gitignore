@@ -3,3 +3,11 @@
 
 #--- __pychache__
 galvanostatic/__pycache__
+
+#--- setuptools files
+build/
+dist/
+mtibatter.egg-info/
+
+#--- Temporary files
+*~
