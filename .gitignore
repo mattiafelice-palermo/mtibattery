@@ -1,0 +1,5 @@
+#--- pyc files
+*.pyc
+
+#--- __pychache__
+galvanostatic/__pycache__
