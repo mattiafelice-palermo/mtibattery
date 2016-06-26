@@ -18,7 +18,7 @@ class CellReadings(object):
     def _read_file(self, filename):
         with open(filename,'r', encoding='utf-8') as data:
             try:
-                #--- Skip header
+                #--- Skip header (need to fine a cleaner way to do this)
                 for i in [1,2,3]:
                     line = data.readline()
 
@@ -35,7 +35,7 @@ class CellReadings(object):
                     
                     while cycle_test == '':
                         #--- Add step object to cycle
-                        step_type = cycle.add_step(line)
+                        step_type = cycle._add_step(line)
 
                         #--- Read first record of current step
                         line = data.readline()
@@ -64,6 +64,9 @@ class CellReadings(object):
             except:
                 print("Unexpected error:", sys.exc_info()[0])
                 raise
+
+    def get_duration(self):
+        return np.sum([cycle.get_duration() for cycle in self.cycles])
 
     def plot_voltage_delta(self, step_label):
         idx = []
@@ -117,11 +120,14 @@ class Cycle(object):
     def __str__(self):
         return "Cycle_id: "+self.cycle_id
 
-    def add_step(self, step_header):
+    def _add_step(self, step_header):
         step = Step(step_header, self.cycle_id)
         self.steps[step.label] = step
         return step.label
 
+    def get_duration(self):
+        return np.sum([step.duration for step in self.steps.values()])
+    
     def plot_voltage(self, step='all'):
         if step == 'all':
             idx = []
@@ -155,6 +161,11 @@ class Step(object):
         self.capacitance = float(header[8])
         self.voltage_start = float(header[9])
         self.voltage_end = float(header[10])
+
+        #--- Variables defined outside __init__
+        self.id_range = None
+        
+        #--- Contains data for each record
         self.records = {}
 
         #--- Compute volt(end) - volt(start)
@@ -175,4 +186,4 @@ class Step(object):
         convertfunc = lambda x: str(x, encoding='utf-8')
         
         self.records['id'], self.records['volt'], self.records['time'] = np.loadtxt(csv, usecols=(0,2,9), unpack=True, dtype=[('id', np.int), ('volt', np.float64), ('time', 'datetime64[ms]')], converters={9: convertfunc})
-
+        self.id_range = (self.records['id'][1], self.records['id'][-1])
