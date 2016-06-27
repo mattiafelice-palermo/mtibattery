@@ -91,6 +91,21 @@ class CellReadings(object):
         plt.plot(idx,voltages)
         plt.show()
 
+
+    def plot_capacity(self, start=0, stop=None, stride=1):
+        rel_time = []
+        capacity = []
+
+        for cycle in self.cycles[start:stop:stride]:
+            for step in cycle.steps.values():
+                rel_time.append(step.records['rel_time'])
+                capacity.append(step.records['capacity'])
+
+        print(capacity)
+
+        plt.plot(rel_time, capacity)
+        plt.show()
+
     def plot_efficiency(self, start=0, stop=None, stride=1, mode='standard'):
         idx = []
         efficiency = []
@@ -185,5 +200,15 @@ class Step(object):
 
         convertfunc = lambda x: str(x, encoding='utf-8')
         
-        self.records['id'], self.records['volt'], self.records['time'] = np.loadtxt(csv, usecols=(0,2,9), unpack=True, dtype=[('id', np.int), ('volt', np.float64), ('time', 'datetime64[ms]')], converters={9: convertfunc})
+        self.records['id'], self.records['rel_time'], self.records['volt'], self.records['capacity'], self.records['sp_capacity'], self.records['time'] = np.loadtxt(csv, usecols=(0,1,2,5,6,9), unpack=True, dtype=[('id', np.int), ('rel_time', 'timedelta64[s]'), ('volt', np.float64), ('capacity', np.float64), ('sp_capacity', np.float64), ('time', 'datetime64[ms]')], converters={1: str2timedelta, 9: convertfunc})
+
         self.id_range = (self.records['id'][1], self.records['id'][-1])
+
+def str2timedelta(data):
+    string = str(data)
+    # Use string starting from character 2 in order to remove 
+    # the "b'" preceding the string in a byte string
+    hours, minutes, seconds, mseconds = string[2:].split(':')
+    time = dt.timedelta(hours=int(hours), minutes=int(minutes), seconds=int(seconds)).total_seconds()
+    return np.timedelta64(int(time), 's')
+

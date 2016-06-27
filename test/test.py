@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../galvanostatic'))
+sys.path.insert(0, os.path.abspath('../mtibattery'))
 
-from galvanostatic import CellReadings
+from mtibattery import CellReadings
 
 
 filename='../data/20151123_CuHcF_3A_for_elettra.txt'
@@ -17,4 +17,7 @@ print(readings.cycle_number)
 #readings.cycles[1].plot_voltage(step='charge')
 #readings.plot_efficiency(stride=10, mode='inverse')
 
-print(readings.get_duration())
+#print(readings.get_duration())
+
+
+readings.plot_capacity(start=1, stop=2)
