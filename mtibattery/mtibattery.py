@@ -1,4 +1,9 @@
-#!/usr/bin/env python
+"""This module allows the user to conveniently access the
+   output of a MtiCorp Battery Analizer through a python
+   interface and to run several computations and to plot/output
+   the data.
+"""
+
 import sys
 from io import StringIO
 import collections
@@ -8,13 +13,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-
 class CellReadings(object):
     """ Easy access to data from mticorp battery analyzer output.
     """
+
     def __init__(self, filename):
         """ Initialize a CellReadings object.
-        The __init__ method initializes the object with filename 
+        The __init__ method initializes the object with filename
         and  empty lists for cycles. Invokes _read_file method
         to read the file and populate the CellReadings object.
 
@@ -23,13 +28,14 @@ class CellReadings(object):
         filename : str
             Name of the input file
         """
-        
-        self.filename = filename # name of the file
-        self.cycles = [] # contains cycle objects
+
+        self.filename = filename  # name of the file
+        self.cycles = []  # contains cycle objects
+        self.headers = [] # contains column headers (probably useless...)
 
         # Call _read_file function to parse the input file
-        self._read_file(filename) 
-        self.cycle_number = len(self.cycles) # number of cycles
+        self._read_file(filename)
+        self.cycle_number = len(self.cycles)  # number of cycles
 
     def _read_file(self, filename):
         """ Read and parse input file.
@@ -43,22 +49,22 @@ class CellReadings(object):
         ------
         EOFError
             If end of file is reached.
-        
+
 
         """
-        with open(filename,'r', encoding='utf-8') as data:
+        with open(filename, 'r', encoding='utf-8') as data:
             try:
                 #--- Skip first three lines of header
-                [data.readline() for i in range(3)]
+                self.headers = [data.readline() for i in range(3)]
 
                 #--- Reads cycle header
-                line = data.readline() # cycle header
+                line = data.readline()  # cycle header
                 while True:
                     #--- Create cycle object
                     cycle = Cycle(line)
-                    
+
                     #--- Read step header
-                    line = data.readline() # step header
+                    line = data.readline()  # step header
 
                     # str: records always have a empty '' cycle entry
                     #      when a new cycle starts, cycle_test contains
@@ -68,17 +74,19 @@ class CellReadings(object):
                     while cycle_test == '':
                         #--- Add step object to cycle
                         # str: contains the step type (charge, discharge, rest)
-                        step_type = cycle._add_step(line) 
+                        step_type = cycle._add_step(line)
 
                         #--- Read first record of current step
-                        line = data.readline() # contains first step record
-                        splitted = line.split('\t') # split record line by tabs
-                        records = [] # will contain all records of a step
+                        line = data.readline()  # contains first step record
+                        # split record line by tabs
+                        splitted = line.split('\t')
+                        records = []  # will contain all records of a step
 
                         #--- Read records of a step
-                        while splitted[1] == '': # splitted[1] is empty till a new
+                        while splitted[1] == '':  # splitted[1] is empty till a new
                                                  # step begins
-                            records.append(line[2:]) # remove two initial empty fields
+                            # remove two initial empty fields
+                            records.append(line[2:])
                             #--- Read next record and split it
                             line = data.readline()
                             splitted = line.split('\t')
@@ -95,12 +103,14 @@ class CellReadings(object):
                         cycle_test = splitted[0]
 
                     #--- Once all steps and records have been read and added
-                    #    to the cycle object, append the cycle object to self.cycles
+                    # to the cycle object, append the cycle object to
+                    # self.cycles
                     self.cycles.append(cycle)
             except EOFError:
                 print("\nFinished reading file")
             except:
-                print("Unexpected error while reading file:", sys.exc_info()[0])
+                print("Unexpected error while reading file:",
+                      sys.exc_info()[0])
                 raise
 
     def get_duration(self):
@@ -112,7 +122,7 @@ class CellReadings(object):
             timedelta object containing total duration.
 
         """
-        
+
         return np.sum([cycle.get_duration() for cycle in self.cycles])
 
     def plot_voltage_delta(self, step_label):
@@ -127,9 +137,9 @@ class CellReadings(object):
         step_label : str  {'Rest', 'CC_Charge', 'CC_DChg'}
             Contains step type.
         """
-        
-        idx = [] # cycle indices
-        deltas = [] # delta voltages
+
+        idx = []  # cycle indices
+        deltas = []  # delta voltages
 
         #--- Cycle over each cycle
         for elem in self.cycles:
@@ -137,7 +147,7 @@ class CellReadings(object):
             deltas.append(elem.steps[step_label].voltage_delta)
 
         #--- Plot data with matplotlib
-        plt.scatter(idx,deltas)
+        plt.scatter(idx, deltas)
         plt.plot(idx, deltas)
         plt.show()
 
@@ -153,8 +163,8 @@ class CellReadings(object):
         step : int
             Read every 'step's cycles.
         """
-        
-        idx = [] # record indexes
+
+        idx = []  # record indexes
         voltages = []
 
         #--- Cycle over each cycle
@@ -164,9 +174,8 @@ class CellReadings(object):
                 voltages.extend(step.records['volt'])
 
         #--- Plot data with matplotlib
-        plt.plot(idx,voltages)
+        plt.plot(idx, voltages)
         plt.show()
-
 
     def plot_spcapacity(self, start=0, stop=None, step=1):
         """ Plot specific capacity as a function of the voltage.
@@ -185,13 +194,16 @@ class CellReadings(object):
             for step in cycle.steps.values():
                 if step.label == 'CC_Chg':
                     # Charge voltage is plotted in red
-                    plt.plot(step.records['volt'], step.records['sp_capacity'], 'r')
+                    plt.plot(step.records['volt'],
+                             step.records['sp_capacity'], 'r')
                 elif step.label == 'CC_DChg':
                     # Discharge voltage is plotted in blue
-                    plt.plot(step.records['volt'], step.records['sp_capacity'], 'b')
+                    plt.plot(step.records['volt'],
+                             step.records['sp_capacity'], 'b')
                 else:
                     # Rest voltage is plotted in black
-                    plt.plot(step.records['volt'], step.records['sp_capacity'], 'k')
+                    plt.plot(step.records['volt'],
+                             step.records['sp_capacity'], 'k')
 
         #--- Show the plot
         plt.show()
@@ -215,8 +227,8 @@ class CellReadings(object):
         The efficiency of a cycle is computed as the ratio between the discharge
         and charge time. If mode is set to 'inverse', then it is computes as
         the ratio between the charge and discharge time.
-        """        
-        idx = [] # cycle indices
+        """
+        idx = []  # cycle indices
         efficiency = []
 
         # Cycle over cycles
@@ -225,21 +237,23 @@ class CellReadings(object):
             discharge_time = cycle.steps['CC_DChg'].duration
             charge_time = cycle.steps['CC_Chg'].duration
             if mode == 'standard':
-                efficiency.append(discharge_time/charge_time)
+                efficiency.append(discharge_time / charge_time)
             elif mode == 'inverse':
-                efficiency.append(charge_time/discharge_time)
+                efficiency.append(charge_time / discharge_time)
             else:
-                raise ValueError("'mode' argument accepts only 'standard' or 'inverse' parameters.")
-                
+                raise ValueError(
+                    "'mode' argument accepts only 'standard' or 'inverse' parameters.")
 
         #--- Plot with matplotlib
-        plt.scatter(idx,efficiency)
+        plt.scatter(idx, efficiency)
         plt.plot(idx, efficiency)
-        plt.show()        
+        plt.show()
+
 
 class Cycle(object):
     """ Contains information of a (rest)-charge-discharge cycle.
     """
+
     def __init__(self, cycle_header):
         """ Initialize a Cycle object.
 
@@ -255,7 +269,7 @@ class Cycle(object):
     def __str__(self):
         #--- Returns pretty representation of a Cycle object
         #    if printed with str.print()
-        return "Cycle_id: "+self.cycle_id
+        return "Cycle_id: " + self.cycle_id
 
     def _add_step(self, step_header):
         #--- Adds a step to the cycle object
@@ -277,9 +291,9 @@ class Cycle(object):
         dt.timedelta
             timedelta object containing total duration of the battery cycle.
         """
- 
+
         return np.sum([step.duration for step in self.steps.values()])
-    
+
     def plot_voltage(self, step='all'):
         """ Plot voltage of a cycle as a function of the record index.
 
@@ -304,15 +318,18 @@ class Cycle(object):
             idx = self.steps['CC_DChg'].records['id']
             voltages = self.steps['CC_DChg'].records['volt']
         else:
-            raise ValueError("'step' argument can take 'all', 'charge', discharge' parameters only.")
+            raise ValueError(
+                "'step' argument can take 'all', 'charge', discharge' parameters only.")
 
         #--- Plot with matplotlib
-        plt.plot(idx,voltages)
-        plt.show()       
+        plt.plot(idx, voltages)
+        plt.show()
+
 
 class Step(object):
     """ Contains informations about either a rest, charge or discharge step.
     """
+
     def __init__(self, step_header, parent_cycle_id):
         """ Initialize a step object.
 
@@ -339,7 +356,7 @@ class Step(object):
 
         #--- Variables defined outside __init__
         self.id_range = None
-        
+
         #--- Contains data for each record
         self.records = {}
 
@@ -347,14 +364,15 @@ class Step(object):
         self.voltage_delta = self.voltage_end - self.voltage_start
 
         #--- Duration of the step
-        hours, minutes, seconds, mseconds = header[3].split(':')
+        hours, minutes, seconds = header[3].split(':')
         self.duration = dt.timedelta(hours=int(hours), minutes=int(minutes),
                                      seconds=int(seconds))
 
     def __str__(self):
         #--- Returns pretty representation of a Step object
         #    if printed with str.print()
-        return "Step "+str(self.step_id)+" type "+self.label+" of Cycle "+str(self.parent_cycle_id)
+        return ("Step " + str(self.step_id) + " type "
+                + self.label + " of Cycle " + str(self.parent_cycle_id))
 
     def _add_records(self, record_list):
         #--- Adds records to a step object
@@ -368,7 +386,7 @@ class Step(object):
         csv = StringIO(string)
 
         # func : lambda function to conver bytestring to string on the fly
-        bstrstr = lambda x: str(x, encoding='utf-8')
+        bstr2str = lambda x: str(x, encoding='utf-8')
 
         # For the sake of brevity (sigh...)
         records = self.records
@@ -380,7 +398,7 @@ class Step(object):
             records['capacity'], \
             records['sp_capacity'], \
             records['time'] = np.loadtxt(csv,
-                                         usecols=(0,1,2,5,6,9),
+                                         usecols=(0, 1, 2, 5, 6, 9),
                                          unpack=True,
                                          dtype=[('id', np.int),
                                                 ('rel_time', 'timedelta64[s]'),
@@ -394,10 +412,10 @@ class Step(object):
         #--- Save the minimum and maximum record id of the step
         self.id_range = (self.records['id'][1], self.records['id'][-1])
 
-        
-def str2timedelta(data):
+
+def bstr2timedelta(data):
     """ Converts a byte string to a timedelta object
-    
+
     Parameters
     ----------
     data : bytestring
@@ -409,9 +427,9 @@ def str2timedelta(data):
         timedelta object
     """
     string = str(data)
-    # Use string starting from character 2 in order to remove 
+    # Use string starting from character 2 in order to remove
     # the "b'" preceding the string in a byte string
-    hours, minutes, seconds, mseconds = string[2:].split(':')
-    time = dt.timedelta(hours=int(hours), minutes=int(minutes), seconds=int(seconds)).total_seconds()
+    hours, minutes, seconds = string[2:].split(':')
+    time = dt.timedelta(hours=int(hours), minutes=int(
+        minutes), seconds=int(seconds)).total_seconds()
     return np.timedelta64(int(time), 's')
-
