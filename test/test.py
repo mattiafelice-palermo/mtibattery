@@ -7,17 +7,20 @@ from mtibattery import CellReadings
 
 
 filename='../data/20151123_CuHcF_3A_for_elettra.txt'
+filename='../data/20151126_graphite_foil_blank.txt'
 readings = CellReadings(filename)
 
 
 #readings.plot_voltage_delta('CC_Chg')
 
-print(readings.cycle_number)
+#print(readings.cycle_number)
 
 #readings.cycles[1].plot_voltage(step='charge')
-#readings.plot_efficiency(stride=10, mode='inverse')
+#readings.plot_efficiency(step=1)
 
 #print(readings.get_duration())
 
 
-readings.plot_capacity(start=1, stop=2)
+#readings.plot_spcapacity(stride=50)
+
+readings.save()

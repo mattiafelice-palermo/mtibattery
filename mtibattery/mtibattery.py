@@ -5,12 +5,15 @@
 """
 
 import sys
+import os.path as path
 from io import StringIO
 import collections
 import datetime as dt
 
 import numpy as np
 import matplotlib.pyplot as plt
+
+from helper import bstr2timedelta, str2timedelta
 
 
 class CellReadings(object):
@@ -49,8 +52,6 @@ class CellReadings(object):
         ------
         EOFError
             If end of file is reached.
-
-
         """
         with open(filename, 'r', encoding='utf-8') as data:
             try:
@@ -124,6 +125,17 @@ class CellReadings(object):
         """
 
         return np.sum([cycle.get_duration() for cycle in self.cycles])
+
+    def save_cycles(self):
+        output = []
+        
+        for cycle in self.cycles:
+            output.append(list(cycle.properties.values()))
+
+        root = path.splitext(path.basename(self.filename))[0]
+        filename = root+".cycles.dat"
+        header = ""
+        np.savetxt(filename, np.vstack(output), fmt='%.5e', header=header) 
 
     def plot_voltage_delta(self, step_label):
         """ Plot difference between initial and final voltage of step type.
@@ -234,15 +246,7 @@ class CellReadings(object):
         # Cycle over cycles
         for cycle in self.cycles[start:stop:step]:
             idx.append(cycle.cycle_id)
-            discharge_time = cycle.steps['CC_DChg'].duration
-            charge_time = cycle.steps['CC_Chg'].duration
-            if mode == 'standard':
-                efficiency.append(discharge_time / charge_time)
-            elif mode == 'inverse':
-                efficiency.append(charge_time / discharge_time)
-            else:
-                raise ValueError(
-                    "'mode' argument accepts only 'standard' or 'inverse' parameters.")
+            efficiency.append(cycle.get_efficiency(mode))
 
         #--- Plot with matplotlib
         plt.scatter(idx, efficiency)
@@ -254,6 +258,21 @@ class Cycle(object):
     """ Contains information of a (rest)-charge-discharge cycle.
     """
 
+    head_entries = [('cycle_id', int), ('charge_capacity', float),
+                    ('discharge_capacity', float), ('charge_capacity_sp', float),
+                    ('discharge_capacity_sp', float), ('efficiency', float),
+                    ('charge_energy', float), ('discharge_energy', float),
+                    ('midval_voltage', float), ('charge_capacity2', float),
+                    ('charge_ratio', float), ('platform_capacity', float),
+                    ('platform_capacity_sp', float),
+                    ('platform_efficiency', float),
+                    ('platform_duration', str2timedelta),
+                    ('charge_capacitance', float),
+                    ('discharge_capacicance', float), ('rd', float),
+                    ('charge_energy_sp', float), ('discharge_energy_sp', float),
+                    ('energy_efficiency', lambda x: float(x[:-1]))]
+                    
+     
     def __init__(self, cycle_header):
         """ Initialize a Cycle object.
 
@@ -262,20 +281,32 @@ class Cycle(object):
         cycle_header : str
             Header containing infos about the cycle
         """
-        header = cycle_header.split('\t')
-        self.cycle_id = int(header[0])
+
+        self.properties = collections.OrderedDict()
         self.steps = collections.OrderedDict()
+        
+        #--- Parse header and populate properties dictionary
+        self._parse_header(cycle_header)
 
     def __str__(self):
         #--- Returns pretty representation of a Cycle object
         #    if printed with str.print()
         return "Cycle_id: " + self.cycle_id
 
+    def _parse_header(self, header_line):
+        #--- Split header line
+        header = header_line.split('\t')
+
+        #--- Populate the properties dictionary with values from header
+        for idx, entry in enumerate(Cycle.head_entries):
+            # entry[1] is a function that converts the string to the right type
+            self.properties[entry[0]] = entry[1](header[idx])
+
     def _add_step(self, step_header):
         #--- Adds a step to the cycle object
 
         #--- Create a step object
-        step = Step(step_header, self.cycle_id)
+        step = Step(step_header, self.properties['cycle_id'])
 
         #--- Add it to the steps dictionary in the cycle object
         self.steps[step.label] = step
@@ -294,6 +325,31 @@ class Cycle(object):
 
         return np.sum([step.duration for step in self.steps.values()])
 
+    def get_efficiency(self, mode = 'standard'):
+        """ Returns efficiency of the cycle.
+
+        Parameters
+        ----------
+        mode : str {'standard', 'inverse'}
+            if 'standard', return discharge/charge time, otherwise its inverse.
+
+        Returns
+        -------
+        float
+            efficiency of the cycle
+        """
+        
+        discharge_time = self.steps['CC_DChg'].duration
+        charge_time = self.steps['CC_Chg'].duration
+
+        if mode == 'standard':
+            return discharge_time/charge_time
+        elif mode == 'inverse':
+            return charge_time/discharge_time
+        else:
+            raise ValueError(
+                "'mode' argument accepts only 'standard' or 'inverse' parameters.") 
+       
     def plot_voltage(self, step='all'):
         """ Plot voltage of a cycle as a function of the record index.
 
@@ -364,7 +420,7 @@ class Step(object):
         self.voltage_delta = self.voltage_end - self.voltage_start
 
         #--- Duration of the step
-        hours, minutes, seconds = header[3].split(':')
+        hours, minutes, seconds, milliseconds = header[3].split(':')
         self.duration = dt.timedelta(hours=int(hours), minutes=int(minutes),
                                      seconds=int(seconds))
 
@@ -411,25 +467,3 @@ class Step(object):
 
         #--- Save the minimum and maximum record id of the step
         self.id_range = (self.records['id'][1], self.records['id'][-1])
-
-
-def bstr2timedelta(data):
-    """ Converts a byte string to a timedelta object
-
-    Parameters
-    ----------
-    data : bytestring
-        Contains a bytestring representing a timedelta
-
-    Returns
-    -------
-    dt.timedelta
-        timedelta object
-    """
-    string = str(data)
-    # Use string starting from character 2 in order to remove
-    # the "b'" preceding the string in a byte string
-    hours, minutes, seconds = string[2:].split(':')
-    time = dt.timedelta(hours=int(hours), minutes=int(
-        minutes), seconds=int(seconds)).total_seconds()
-    return np.timedelta64(int(time), 's')
