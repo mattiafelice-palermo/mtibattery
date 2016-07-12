@@ -13,7 +13,7 @@ import datetime as dt
 import numpy as np
 import matplotlib.pyplot as plt
 
-from helper import bstr2timedelta, str2timedelta
+from .helper import bstr2timedelta, str2timedelta
 
 
 class CellReadings(object):
