@@ -8,6 +8,7 @@ from mtibattery import CellReadings
 
 filename='../data/20151123_CuHcF_3A_for_elettra.txt'
 filename='../data/20151126_graphite_foil_blank.txt'
+filename='../../../angelo/20160621_AM15.txt'
 readings = CellReadings(filename)
 
 

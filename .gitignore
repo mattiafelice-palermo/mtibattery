@@ -7,7 +7,7 @@ galvanostatic/__pycache__
 #--- setuptools files
 build/
 dist/
-mtibatter.egg-info/
+*.egg-info/
 
 #--- Temporary files
 *~

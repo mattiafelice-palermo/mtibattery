@@ -265,7 +265,7 @@ class Cycle(object):
                     ('midval_voltage', float), ('charge_capacity2', float),
                     ('charge_ratio', float), ('platform_capacity', float),
                     ('platform_capacity_sp', float),
-                    ('platform_efficiency', float),
+                    ('platform_efficiency', lambda x: float(x.split('#')[0])),
                     ('platform_duration', str2timedelta),
                     ('charge_capacitance', float),
                     ('discharge_capacicance', float), ('rd', float),
