@@ -13,7 +13,7 @@ import datetime as dt
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .helper import bstr2timedelta, str2timedelta
+from .helper import bstr2seconds, str2timedelta
 
 
 class CellReadings(object):
@@ -135,7 +135,22 @@ class CellReadings(object):
         root = path.splitext(path.basename(self.filename))[0]
         filename = root+".cycles.dat"
         header = ""
-        np.savetxt(filename, np.vstack(output), fmt='%.5e', header=header) 
+        np.savetxt(filename, np.vstack(output), fmt='%.5e', header=header)
+
+    def save_records(self):
+        output = []
+        
+        for cycle in self.cycles:
+            for step in cycle.steps.values():
+                step_list = []
+                for record in step.records.values():
+                    step_list.append(record)
+                output.append(np.column_stack(step_list))
+
+        root = path.splitext(path.basename(self.filename))[0]
+        filename = root+".records.dat"
+        header = "1. id | 2. time | 3. volt | 4. capacity | 5. sp_capacity"
+        np.savetxt(filename, np.vstack(output), fmt='%i %.5e %.5e %.5e %.5e', header=header)
 
     def plot_voltage_delta(self, step_label):
         """ Plot difference between initial and final voltage of step type.
@@ -414,7 +429,7 @@ class Step(object):
         self.id_range = None
 
         #--- Contains data for each record
-        self.records = {}
+        self.records = collections.OrderedDict()
 
         #--- Compute volt(end) - volt(start)
         self.voltage_delta = self.voltage_end - self.voltage_start
@@ -452,18 +467,15 @@ class Step(object):
             records['rel_time'], \
             records['volt'], \
             records['capacity'], \
-            records['sp_capacity'], \
-            records['time'] = np.loadtxt(csv,
-                                         usecols=(0, 1, 2, 5, 6, 9),
-                                         unpack=True,
-                                         dtype=[('id', np.int),
-                                                ('rel_time', 'timedelta64[s]'),
-                                                ('volt', np.float64),
-                                                ('capacity', np.float64),
-                                                ('sp_capacity', np.float64),
-                                                ('time', 'datetime64[ms]')],
-                                         converters={1: bstr2timedelta,
-                                                     9: bstr2str})
+            records['sp_capacity'] = np.loadtxt(csv,
+                                                usecols=(0, 1, 2, 5, 6, 9),
+                                                unpack=True,
+                                                dtype=[('id', np.int),
+                                                       ('rel_time', np.float64),
+                                                       ('volt', np.float64),
+                                                       ('capacity', np.float64),
+                                                       ('sp_capacity', np.float64)],
+                                                converters={1: bstr2seconds})
 
         #--- Save the minimum and maximum record id of the step
         self.id_range = (self.records['id'][1], self.records['id'][-1])

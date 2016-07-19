@@ -4,7 +4,7 @@
 import numpy as np
 import datetime as dt
 
-def bstr2timedelta(data):
+def bstr2seconds(data):
     """ Converts a byte string to a timedelta object
 
     Parameters
@@ -23,7 +23,8 @@ def bstr2timedelta(data):
     hours, minutes, seconds, milliseconds = string[2:].split(':')
     time = dt.timedelta(hours=int(hours), minutes=int(
         minutes), seconds=int(seconds)).total_seconds()
-    return np.timedelta64(int(time), 's')
+    return time
+    #return np.timedelta64(int(time), 's')
 
 
 def str2timedelta(data):
